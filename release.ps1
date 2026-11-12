@@ -39,12 +39,27 @@ if (-not $repo) {
 Done "Hive is at $repo"
 Set-Location $repo
 
-Say "Getting the newest code (2.0.0)"
+Say "Getting the newest code"
+# Building rewrites the lock files (npm and cargo note what they installed). They're put back, or the update can't come in.
+git checkout -- "desktop/package-lock.json" "desktop/src-tauri/Cargo.lock" "desktop/src-tauri/icons"
+# Anything else changed by hand is set aside, never thrown away. "git stash list" shows it, "git stash pop" brings it back.
+if (git status --porcelain --untracked-files=no) {
+  git -c user.name="Hive release" -c user.email="release@hive.local" stash push -m "Set aside by the Hive release script, $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+  Write-Host "Files you had changed in $repo were set aside with git stash, not deleted." -ForegroundColor Yellow
+}
 git fetch origin main
+if ($LASTEXITCODE -ne 0) { Fail "Couldn't reach GitHub to get the newest code. Check the internet connection." }
 git checkout main
-if ($LASTEXITCODE -ne 0) { Fail "Couldn't switch to main. If you changed files in $repo by hand, move them somewhere else first." }
-git pull --ff-only origin main
-if ($LASTEXITCODE -ne 0) { Fail "Couldn't update to the newest code. If you changed files in $repo by hand, move them somewhere else first." }
+if ($LASTEXITCODE -ne 0) { Fail "Couldn't switch to main. Copy the text above and send it to Claude." }
+git merge --ff-only origin/main
+if ($LASTEXITCODE -ne 0) {
+  # This PC's main has commits GitHub doesn't. They're kept on a backup branch, and main matches GitHub.
+  $backup = "backup-$(Get-Date -Format 'yyyyMMdd-HHmm')"
+  git branch $backup
+  git reset --hard origin/main
+  if ($LASTEXITCODE -ne 0) { Fail "Couldn't update to the newest code. Copy the text above and send it to Claude." }
+  Write-Host "This PC's own commits are kept on the branch $backup." -ForegroundColor Yellow
+}
 $version = (Get-Content "desktop\src-tauri\tauri.conf.json" -Raw | ConvertFrom-Json).version
 Done "Version $version"
 

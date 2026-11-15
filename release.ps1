@@ -133,5 +133,15 @@ if ($w -eq "yes") {
   npx wrangler@3.99.0 deploy
   if ($LASTEXITCODE -ne 0) { Write-Host "The server didn't update. Hive still works; send this window to Claude." -ForegroundColor Yellow } else { Done "The server is updated." }
 }
+# Hive 3.5: the database rules switch on end-to-end encryption. Phones on 3.5 send readably until these are live, then
+# seal everything by themselves; apps older than 3.5 can no longer send once they are. Needs firebase-admin.json here.
+if (Test-Path (Join-Path $repo "firebase-admin.json")) {
+  $r = Read-Host "`nType yes to switch on end-to-end encryption now (updates the database rules), or press Enter to skip"
+  if ($r -eq "yes") {
+    Set-Location $repo
+    node tools/deploy-rules.mjs
+    if ($LASTEXITCODE -ne 0) { Write-Host "The rules didn't update. Nothing is broken; send this window to Claude." -ForegroundColor Yellow } else { Done "Encryption is on." }
+  }
+} else { Write-Host "firebase-admin.json isn't in $repo, so encryption stays off for now. Copy it there and run this again." -ForegroundColor Yellow }
 Done "`nHive $version is out. PCs running Hive find it within a few minutes of starting, or every 6 hours."
 Read-Host "Press Enter to close"
